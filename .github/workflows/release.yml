@@ -473,6 +473,22 @@ jobs:
         with:
           files: ${{ needs.setup.outputs.app }}-installer-${{ needs.setup.outputs.version }}-win-${{ matrix.arch }}.exe
 
+      # Fork convenience: a manual run on a fork also publishes the installer as
+      # a GitHub pre-release, so it downloads as a plain .exe from the
+      # Releases page instead of a zipped Actions artifact. Never upstream.
+      - name: Publish fork pre-release
+        if: ${{ github.event_name == 'workflow_dispatch' && github.repository != 'linckosz/moonlight-web' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          file="${{ needs.setup.outputs.app }}-installer-${{ needs.setup.outputs.version }}-win-${{ matrix.arch }}.exe"
+          tag="build-${GITHUB_REF_NAME//\//-}-${GITHUB_RUN_NUMBER}-${{ matrix.arch }}"
+          gh release create "$tag" "$file" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "${GITHUB_REF_NAME} build ${GITHUB_RUN_NUMBER} (Windows ${{ matrix.arch }})" \
+            --notes "Unsigned test build of ${GITHUB_REF_NAME} @ ${GITHUB_SHA::7}. Windows SmartScreen will warn: More info → Run anyway."
+
   # ── Linux x64 (.deb + .rpm + AppImage) ───────────────────────────────────
   # One linuxdeploy AppDir (bundled Qt, $ORIGIN rpaths) feeds all three outputs:
   #   .deb  → Debian/Ubuntu/Mint (double-click install, no chmod)
